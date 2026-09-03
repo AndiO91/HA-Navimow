@@ -20,11 +20,35 @@
       "missing_config": "Die OAuth-Client-Konfiguration fehlt."
     }
   },
-  "options": {"step": {"init": {"title": "Navimow-Plus-Optionen", "description": "Derzeit sind keine Optionen konfigurierbar."}}},
+  "options": {
+    "step": {
+      "init": {
+        "title": "Karte (Beta)",
+        "description": "Aktiviere die optionale Karten-Cloud, um Begrenzungen und Zonen zu laden. Sie verwendet die undokumentierte Mobil-App-API und benötigt weiterhin Internetzugang. Dein Passwort wird nur zur Anmeldung verwendet und nicht gespeichert.",
+        "data": {
+          "private_cloud_enabled": "Karten-Cloud aktivieren (Beta)",
+          "username": "E-Mail der Navimow-App",
+          "password": "Passwort der Navimow-App"
+        },
+        "data_description": {
+          "username": "E-Mail und Passwort leer lassen, um eine vorhandene Kartensitzung beizubehalten.",
+          "password": "Wenn möglich ein geteiltes Navimow-Konto verwenden. Das Passwort wird nicht in Home Assistant gespeichert."
+        }
+      }
+    },
+    "error": {
+      "private_credentials_required": "Gib E-Mail und Passwort der Navimow-App ein.",
+      "private_no_devices": "Das App-Konto enthält keinen Mäher.",
+      "private_invalid_auth": "Die Zugangsdaten der Navimow-App wurden abgelehnt.",
+      "cannot_connect": "Verbindung zum Navimow-Kartendienst nicht möglich.",
+      "unknown": "Unerwarteter Fehler."
+    }
+  },
   "entity": {
     "binary_sensor": {
       "mqtt_connection": {"name": "MQTT-Verbindung"},
-      "problem": {"name": "Problem"}
+      "problem": {"name": "Problem"},
+      "private_cloud_connection": {"name": "Karten-Cloud-Verbindung"}
     },
     "device_tracker": {"location": {"name": "Standort"}},
     "sensor": {
@@ -33,7 +57,12 @@
       "error": {"name": "Fehler"},
       "last_update": {"name": "Letzte Aktualisierung"},
       "signal_strength": {"name": "Signalstärke"},
-      "status": {"name": "Status"}
+      "status": {"name": "Status"},
+      "map_data": {"name": "Kartendaten"},
+      "position_x": {"name": "Kartenposition X"},
+      "position_y": {"name": "Kartenposition Y"},
+      "heading": {"name": "Kartenausrichtung"},
+      "current_physical_zone": {"name": "Aktuelle physische Zone"}
     }
   }
 }

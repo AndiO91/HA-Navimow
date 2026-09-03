@@ -86,6 +86,42 @@ SENSOR_DESCRIPTIONS: tuple[NavimowSensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coordinator: coordinator.get_meta().get("last_update"),
     ),
+    NavimowSensorEntityDescription(
+        key="map_data",
+        translation_key="map_data",
+        icon="mdi:map-outline",
+        value_fn=lambda coordinator: coordinator.map_revision,
+    ),
+    NavimowSensorEntityDescription(
+        key="position_x",
+        translation_key="position_x",
+        icon="mdi:axis-x-arrow",
+        native_unit_of_measurement="m",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coordinator: coordinator.position_x,
+    ),
+    NavimowSensorEntityDescription(
+        key="position_y",
+        translation_key="position_y",
+        icon="mdi:axis-y-arrow",
+        native_unit_of_measurement="m",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coordinator: coordinator.position_y,
+    ),
+    NavimowSensorEntityDescription(
+        key="heading",
+        translation_key="heading",
+        icon="mdi:compass-outline",
+        native_unit_of_measurement="°",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coordinator: coordinator.heading,
+    ),
+    NavimowSensorEntityDescription(
+        key="current_physical_zone",
+        translation_key="current_physical_zone",
+        icon="mdi:vector-polygon",
+        value_fn=lambda coordinator: coordinator.current_physical_zone,
+    ),
 )
 
 
@@ -138,3 +174,16 @@ class NavimowSensor(NavimowCoordinatorEntity, SensorEntity):
     def native_value(self) -> Any:
         """Return sensor value from coordinator."""
         return self.entity_description.value_fn(self.coordinator)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Expose only lightweight map-card invalidation metadata."""
+        if self.entity_description.key != "map_data":
+            return None
+        meta = self.coordinator.get_meta()
+        return {
+            "api_path": self.coordinator.map_api_path(),
+            "map_version": self.coordinator.map_revision,
+            "trail_revision": meta.get("trail_revision"),
+            "private_cloud_connected": meta.get("private_cloud_connected"),
+        }

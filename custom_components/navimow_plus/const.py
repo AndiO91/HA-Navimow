@@ -6,6 +6,16 @@ from typing import Final
 
 DOMAIN: Final = "navimow_plus"
 
+# Optional private mobile-app cloud. It is used read-only for map geometry;
+# the password is never stored.
+CONF_PRIVATE_CLOUD_ENABLED: Final = "private_cloud_enabled"
+CONF_PRIVATE_ACCESS_TOKEN: Final = "private_access_token"
+CONF_PRIVATE_REFRESH_TOKEN: Final = "private_refresh_token"
+CONF_PRIVATE_UUID: Final = "private_uuid"
+CONF_PRIVATE_UID: Final = "private_uid"
+CONF_PRIVATE_REGION: Final = "private_region"
+CONF_PRIVATE_DEVICE_ID: Final = "private_device_id"
+
 # OAuth2 Configuration
 # 授权页面 URL（用户登录页面）
 # 添加 channel=homeassistant 以便 HA 跳转回登录页时携带渠道信息
@@ -41,6 +51,11 @@ MQTT_STALE_SECONDS: Final = 300
 
 # HTTP 兜底最小拉取间隔（秒），避免频繁请求
 HTTP_FALLBACK_MIN_INTERVAL: Final = 300
+
+# Map metadata is cheap but private/undocumented. Keep polling conservative and
+# fetch full geometry only when map id/base id/edit time changes.
+PRIVATE_MAP_POLL_INTERVAL: Final = 300
+MAX_TRAIL_POINTS: Final = 6000
 
 # MowerStatus 到 LawnMowerActivity 的映射
 MOWER_STATUS_TO_ACTIVITY = {

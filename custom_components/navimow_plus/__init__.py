@@ -1,6 +1,7 @@
 """The Navimow integration."""
 
 import asyncio
+import json
 import logging
 from typing import Any
 from urllib.parse import urlparse
@@ -17,12 +18,21 @@ from .const import (
     API_BASE_URL,
     CLIENT_ID,
     CLIENT_SECRET,
+    CONF_PRIVATE_ACCESS_TOKEN,
+    CONF_PRIVATE_CLOUD_ENABLED,
+    CONF_PRIVATE_DEVICE_ID,
+    CONF_PRIVATE_REFRESH_TOKEN,
+    CONF_PRIVATE_REGION,
+    CONF_PRIVATE_UID,
+    CONF_PRIVATE_UUID,
     DOMAIN,
     MQTT_BROKER,
     MQTT_PASSWORD,
     MQTT_PORT,
     MQTT_USERNAME,
 )
+from .map_api import async_register_map_api
+from .map_support import location_topic, parse_location_payload
 
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.debug("Navimow module imported (__init__.py)")
@@ -33,6 +43,35 @@ PLATFORMS: list[Platform] = [
     Platform.LAWN_MOWER,
     Platform.SENSOR,
 ]
+
+
+def _private_options_signature(entry: ConfigEntry) -> tuple[Any, ...]:
+    options = entry.options
+    return (
+        bool(options.get(CONF_PRIVATE_CLOUD_ENABLED)),
+        options.get(CONF_PRIVATE_ACCESS_TOKEN),
+        options.get(CONF_PRIVATE_REFRESH_TOKEN),
+        options.get(CONF_PRIVATE_UID),
+        options.get(CONF_PRIVATE_REGION),
+        options.get(CONF_PRIVATE_DEVICE_ID),
+        options.get(CONF_PRIVATE_UUID),
+    )
+
+
+def _vehicle_serial(vehicle: dict[str, Any]) -> str | None:
+    """Extract a serial number from known private auth-list variants."""
+    for key in ("vehicle_sn", "vehicleSn", "serial_number", "serialNumber", "sn"):
+        value = vehicle.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+async def _async_entry_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload only when map options changed, not on routine OAuth refreshes."""
+    runtime = (hass.data.get(DOMAIN) or {}).get(entry.entry_id) or {}
+    if runtime.get("private_options_signature") != _private_options_signature(entry):
+        await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
@@ -50,6 +89,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
             CLIENT_SECRET,
         ),
     )
+    async_register_map_api(hass)
     return True
 
 
@@ -123,6 +163,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not devices:
             _LOGGER.warning("No Navimow devices found")
 
+        private_client = None
+        private_serials: list[str] = []
+        private_enabled = bool(entry.options.get(CONF_PRIVATE_CLOUD_ENABLED))
+        if private_enabled and entry.options.get(CONF_PRIVATE_ACCESS_TOKEN):
+            from .private_cloud import PrivateCloudClient, PrivateTokens
+
+            private_client = PrivateCloudClient(
+                str(entry.options.get(CONF_PRIVATE_DEVICE_ID) or ""),
+                tokens=PrivateTokens(
+                    access_token=str(
+                        entry.options.get(CONF_PRIVATE_ACCESS_TOKEN) or ""
+                    ),
+                    refresh_token=str(
+                        entry.options.get(CONF_PRIVATE_REFRESH_TOKEN) or ""
+                    ),
+                    uuid=str(entry.options.get(CONF_PRIVATE_UUID) or ""),
+                    region=str(entry.options.get(CONF_PRIVATE_REGION) or "fra"),
+                ),
+                uid=str(entry.options.get(CONF_PRIVATE_UID) or ""),
+            )
+            try:
+                private_vehicles = await hass.async_add_executor_job(
+                    private_client.auth_list
+                )
+                private_serials = [
+                    serial
+                    for vehicle in private_vehicles
+                    if (serial := _vehicle_serial(vehicle)) is not None
+                ]
+            except Exception as err:  # noqa: BLE001 - map cache can still be used
+                _LOGGER.warning("Could not load private mower list: %s", err)
+
         # 获取 MQTT 连接信息并创建 SDK
         try:
             mqtt_info = await api.async_get_mqtt_user_info()
@@ -164,10 +236,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _mqtt_refresh_lock = asyncio.Lock()
         # 用列表作为可变标志容器，使 async_unload_entry（不同函数作用域）可以修改它
         _unload_flag: list[bool] = [False]
+        coordinators: dict[str, NavimowCoordinator] = {}
+        location_cache: dict[str, dict[str, Any]] = {}
 
         def _attach_mqtt_debug_hooks(sdk: NavimowSDK, api: MowerAPI) -> None:
             mqtt = sdk._mqtt
             original_on_message = mqtt.on_message
+
+            def _subscribe_location_topics() -> None:
+                for device in devices:
+                    try:
+                        mqtt.client.subscribe(location_topic(device.id))
+                    except Exception as err:  # noqa: BLE001
+                        _LOGGER.warning(
+                            "Could not subscribe to Navimow location for %s: %s",
+                            device.id,
+                            err,
+                        )
 
             def _get_client_id() -> str:
                 client_id_bytes = getattr(mqtt.client, "_client_id", b"")
@@ -185,6 +270,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     mqtt._use_tls,
                     _get_client_id(),
                 )
+                _subscribe_location_topics()
 
             async def _on_ready() -> None:
                 _LOGGER.info(
@@ -193,6 +279,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     mqtt.port,
                     _get_client_id(),
                 )
+                _subscribe_location_topics()
 
             async def _on_disconnected() -> None:
                 _LOGGER.debug(
@@ -225,6 +312,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     len(payload or b""),
                     device_id,
                 )
+                if topic.endswith("/realtimeDate/location"):
+                    try:
+                        decoded = json.loads(
+                            (payload or b"").decode("utf-8", errors="replace")
+                        )
+                    except (TypeError, ValueError):
+                        decoded = None
+                    location = parse_location_payload(
+                        location_cache,
+                        device_id,
+                        decoded,
+                    )
+                    coordinator = coordinators.get(device_id)
+                    if location is not None and coordinator is not None:
+                        coordinator.ingest_mqtt_location(location)
+                    return
                 if original_on_message is not None:
                     await original_on_message(topic, payload, device_id)
 
@@ -244,6 +347,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 )
 
             mqtt.client.on_subscribe = _on_subscribe
+            if sdk.is_connected:
+                _subscribe_location_topics()
 
         async def _probe_mqtt_status(sdk: NavimowSDK) -> None:
             await asyncio.sleep(5)
@@ -337,16 +442,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _attach_mqtt_debug_hooks(sdk, api)
         hass.async_create_task(_probe_mqtt_status(sdk))
 
-        coordinators: dict[str, NavimowCoordinator] = {}
         for device in devices:
+            official_serial = str(device.serial_number or device.id)
+            private_serial = next(
+                (
+                    serial
+                    for serial in private_serials
+                    if serial in {official_serial, str(device.id)}
+                ),
+                private_serials[0]
+                if len(devices) == 1 and len(private_serials) == 1
+                else official_serial,
+            )
             coordinator = NavimowCoordinator(
                 hass=hass,
                 sdk=sdk,
                 api=api,
                 device=device,
                 oauth_session=oauth_session,
+                entry=entry,
+                private_client=private_client,
+                private_serial=private_serial if private_enabled else None,
             )
             await coordinator.async_setup()
+            if device.id in location_cache:
+                coordinator.ingest_mqtt_location(location_cache[device.id])
             await coordinator.async_config_entry_first_refresh()
             coordinators[device.id] = coordinator
 
@@ -357,8 +477,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "devices": devices,
             "coordinators": coordinators,
             "oauth_session": oauth_session,
+            "private_client": private_client,
+            "private_options_signature": _private_options_signature(entry),
             "unload_flag": _unload_flag,
         }
+
+        entry.async_on_unload(entry.add_update_listener(_async_entry_updated))
 
         # 转发到平台
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
