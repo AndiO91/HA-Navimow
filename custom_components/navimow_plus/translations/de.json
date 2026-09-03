@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "oauth2_authorize": {"description": "Wähle Bestätigen, um Home Assistant Zugriff auf dein Navimow-Konto zu geben. Du wirst zur Navimow-Anmeldeseite weitergeleitet."},
+      "user": {"title": "Navimow Plus einrichten", "description": "Verbinde deinen Segway Navimow Mähroboter."},
+      "reauth_confirm": {"title": "Erneute Anmeldung erforderlich", "description": "Deine Navimow-Anmeldung ist abgelaufen. Melde dich erneut an, um die Integration weiter zu verwenden."}
+    },
+    "error": {
+      "authorization_failed": "Autorisierung fehlgeschlagen. Versuche es erneut.",
+      "token_exchange_failed": "Der Autorisierungscode konnte nicht gegen ein Token getauscht werden.",
+      "callback_failed": "Der OAuth-Rückruf konnte nicht verarbeitet werden.",
+      "cannot_connect": "Verbindung zum Navimow-Dienst nicht möglich.",
+      "invalid_auth": "Anmeldung fehlgeschlagen.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "single_instance_allowed": "Es kann nur ein Navimow-Plus-Konto eingerichtet werden.",
+      "already_configured": "Navimow Plus ist bereits eingerichtet.",
+      "reauth_successful": "Die Anmeldung wurde erfolgreich erneuert.",
+      "missing_config": "Die OAuth-Client-Konfiguration fehlt."
+    }
+  },
+  "options": {"step": {"init": {"title": "Navimow-Plus-Optionen", "description": "Derzeit sind keine Optionen konfigurierbar."}}},
+  "entity": {
+    "binary_sensor": {
+      "mqtt_connection": {"name": "MQTT-Verbindung"},
+      "problem": {"name": "Problem"}
+    },
+    "device_tracker": {"location": {"name": "Standort"}},
+    "sensor": {
+      "battery": {"name": "Akku"},
+      "data_source": {"name": "Datenquelle"},
+      "error": {"name": "Fehler"},
+      "last_update": {"name": "Letzte Aktualisierung"},
+      "signal_strength": {"name": "Signalstärke"},
+      "status": {"name": "Status"}
+    }
+  }
+}
