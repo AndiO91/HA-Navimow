@@ -4,6 +4,13 @@
 
 - Add a read-only Home Assistant OS add-on for targeted Navimow LAN discovery
 
+## 0.2.0-beta.3
+
+- Use the SDK MQTT cache only for initial coordinator seeding
+- Track MQTT state freshness separately from attributes and events
+- Force an authoritative REST status refresh after mower commands
+- Prefer a concurrent MQTT state push over an older REST response
+
 ## 0.2.0-beta.2
 
 - Remove the private mobile-app cloud login and experimental map integration

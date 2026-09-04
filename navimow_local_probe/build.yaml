@@ -7,4 +7,4 @@ build_from:
 labels:
   org.opencontainers.image.title: Navimow Local Probe
   org.opencontainers.image.description: Read-only LAN diagnostics for Navimow
-  org.opencontainers.image.source: https://github.com/AndiO91/HA-Navimow
+  org.opencontainers.image.source: https://github.com/AndiHOK91/HA-Navimow

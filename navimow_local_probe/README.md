@@ -10,7 +10,7 @@ available as an opt-in second step.
 
 ## Usage
 
-1. Add `https://github.com/AndiO91/HA-Navimow` as a Home Assistant add-on
+1. Add `https://github.com/AndiHOK91/HA-Navimow` as a Home Assistant add-on
    repository.
 2. Install **Navimow Local Probe**.
 3. Enter the mower's private IPv4 address as `target_ip`.

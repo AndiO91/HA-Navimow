@@ -2,7 +2,7 @@ name: Navimow Local Probe
 version: "0.1.0"
 slug: navimow_local_probe
 description: Read-only LAN diagnostics for a single Navimow mower
-url: https://github.com/AndiO91/HA-Navimow/tree/main/navimow_local_probe
+url: https://github.com/AndiHOK91/HA-Navimow/tree/main/navimow_local_probe
 arch:
   - aarch64
   - amd64

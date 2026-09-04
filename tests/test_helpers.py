@@ -14,6 +14,7 @@ _HELPERS = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_HELPERS)
 error_value = _HELPERS.error_value
 extract_position = _HELPERS.extract_position
+status_refresh_due = _HELPERS.status_refresh_due
 
 
 @dataclass
@@ -26,6 +27,47 @@ class _Message:
 
 
 class HelpersTest(unittest.TestCase):
+    def test_status_refresh_due_uses_real_freshness(self) -> None:
+        self.assertFalse(
+            status_refresh_due(
+                now=100,
+                last_mqtt_state=90,
+                last_http_fetch=None,
+                mqtt_stale_seconds=30,
+                http_min_interval=60,
+            )
+        )
+        self.assertFalse(
+            status_refresh_due(
+                now=100,
+                last_mqtt_state=10,
+                last_http_fetch=80,
+                mqtt_stale_seconds=30,
+                http_min_interval=60,
+            )
+        )
+        self.assertTrue(
+            status_refresh_due(
+                now=100,
+                last_mqtt_state=10,
+                last_http_fetch=20,
+                mqtt_stale_seconds=30,
+                http_min_interval=60,
+            )
+        )
+
+    def test_forced_status_refresh_bypasses_cache_windows(self) -> None:
+        self.assertTrue(
+            status_refresh_due(
+                now=100,
+                last_mqtt_state=100,
+                last_http_fetch=100,
+                mqtt_stale_seconds=300,
+                http_min_interval=300,
+                force=True,
+            )
+        )
+
     def test_extract_position_accepts_known_keys(self) -> None:
         self.assertEqual(extract_position({"lat": "51.2", "lng": 7.1}), (51.2, 7.1))
         self.assertEqual(

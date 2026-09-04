@@ -1,6 +1,8 @@
 """Lawn mower platform for Navimow integration."""
 
+import asyncio
 import logging
+import time
 from typing import Any
 
 from homeassistant.components.lawn_mower import (
@@ -130,17 +132,38 @@ class NavimowLawnMower(CoordinatorEntity[NavimowCoordinator], LawnMowerEntity):
             attributes["attributes"] = attrs.attributes
         return attributes
 
-    async def _async_send_command(self, command: MowerCommand, label: str) -> None:
+    async def _async_send_command(
+        self,
+        command: MowerCommand,
+        label: str,
+        expected_states: frozenset[str],
+    ) -> None:
         """发送指令前先刷新 token，避免 token 过期导致 CODE_OAUTH_INFO_ILLEGAL。"""
         await self.coordinator._async_ensure_valid_token()
+        command_started = time.monotonic()
         await self._api.async_send_command(self._device_id, command)
         _LOGGER.info("%s for device %s", label, self._device_id)
-        await self.coordinator.async_request_refresh()
+        confirmed = await self.coordinator.async_refresh_after_command(
+            command_started,
+            expected_states,
+        )
+        if not confirmed:
+            # The command endpoint may return before getVehicleStatus catches
+            # up. One short retry avoids leaving the UI stale for five minutes.
+            await asyncio.sleep(2)
+            await self.coordinator.async_refresh_after_command(
+                command_started,
+                expected_states,
+            )
 
     async def async_start_mowing(self) -> None:
         """Start mowing."""
         try:
-            await self._async_send_command(MowerCommand.START, "Started mowing")
+            await self._async_send_command(
+                MowerCommand.START,
+                "Started mowing",
+                frozenset({"mowing"}),
+            )
         except Exception as err:
             _LOGGER.error(
                 "Failed to start mowing for device %s: %s", self._device_id, err
@@ -150,7 +173,11 @@ class NavimowLawnMower(CoordinatorEntity[NavimowCoordinator], LawnMowerEntity):
     async def async_pause(self) -> None:
         """Pause mowing."""
         try:
-            await self._async_send_command(MowerCommand.PAUSE, "Paused mowing")
+            await self._async_send_command(
+                MowerCommand.PAUSE,
+                "Paused mowing",
+                frozenset({"paused"}),
+            )
         except Exception as err:
             _LOGGER.error(
                 "Failed to pause mowing for device %s: %s", self._device_id, err
@@ -160,7 +187,11 @@ class NavimowLawnMower(CoordinatorEntity[NavimowCoordinator], LawnMowerEntity):
     async def async_dock(self) -> None:
         """Dock the mower."""
         try:
-            await self._async_send_command(MowerCommand.DOCK, "Docked")
+            await self._async_send_command(
+                MowerCommand.DOCK,
+                "Docked",
+                frozenset({"returning", "docked"}),
+            )
         except Exception as err:
             _LOGGER.error("Failed to dock device %s: %s", self._device_id, err)
             raise
@@ -168,7 +199,11 @@ class NavimowLawnMower(CoordinatorEntity[NavimowCoordinator], LawnMowerEntity):
     async def async_resume(self) -> None:
         """Resume mowing."""
         try:
-            await self._async_send_command(MowerCommand.RESUME, "Resumed mowing")
+            await self._async_send_command(
+                MowerCommand.RESUME,
+                "Resumed mowing",
+                frozenset({"mowing"}),
+            )
         except Exception as err:
             _LOGGER.error(
                 "Failed to resume mowing for device %s: %s", self._device_id, err

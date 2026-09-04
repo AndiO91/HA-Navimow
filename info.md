@@ -14,5 +14,5 @@ Included in the first release:
 Zone mowing, Navimow app map images, schedule editing, and blade-height control
 are not shown until the SDK offers verified support for them.
 
-[Documentation](https://github.com/AndiO91/HA-Navimow) ·
-[Issues](https://github.com/AndiO91/HA-Navimow/issues)
+[Documentation](https://github.com/AndiHOK91/HA-Navimow) ·
+[Issues](https://github.com/AndiHOK91/HA-Navimow/issues)

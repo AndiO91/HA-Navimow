@@ -5,6 +5,25 @@ from __future__ import annotations
 from typing import Any
 
 
+def status_refresh_due(
+    *,
+    now: float,
+    last_mqtt_state: float | None,
+    last_http_fetch: float | None,
+    mqtt_stale_seconds: float,
+    http_min_interval: float,
+    force: bool = False,
+) -> bool:
+    """Return whether an authoritative REST status refresh should run."""
+    if force:
+        return True
+    mqtt_is_stale = (
+        last_mqtt_state is None or now - last_mqtt_state > mqtt_stale_seconds
+    )
+    http_is_ready = last_http_fetch is None or now - last_http_fetch > http_min_interval
+    return mqtt_is_stale and http_is_ready
+
+
 def extract_position(position: Any) -> tuple[float, float] | None:
     """Return a validated latitude/longitude pair from known payload shapes."""
     if not isinstance(position, dict):

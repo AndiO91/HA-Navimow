@@ -61,12 +61,12 @@ This project is not an official Segway Navimow product.
 ## HACS installation
 
 1. In HACS, open **Integrations → Custom repositories**.
-2. Add `https://github.com/AndiO91/HA-Navimow` as category **Integration**.
+2. Add `https://github.com/AndiHOK91/HA-Navimow` as category **Integration**.
 3. Install **Navimow Plus** and restart Home Assistant.
 4. Open **Settings → Devices & services → Add integration** and select
    **Navimow Plus**.
 
-Report problems in the [issue tracker](https://github.com/AndiO91/HA-Navimow/issues).
+Report problems in the [issue tracker](https://github.com/AndiHOK91/HA-Navimow/issues).
 
 ## Experimental local discovery
 
@@ -76,4 +76,4 @@ saves its report in `/share`. This can show whether a mower exposes a local
 service; it does not yet provide local control.
 
 Add this repository to the Home Assistant add-on store to install the probe:
-`https://github.com/AndiO91/HA-Navimow`.
+`https://github.com/AndiHOK91/HA-Navimow`.

@@ -26,6 +26,7 @@ from .const import (
     MQTT_STALE_SECONDS,
     UPDATE_INTERVAL,
 )
+from .helpers import status_refresh_due
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +60,9 @@ class NavimowCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_http_fetch: float | None = None
         self._last_data_source: str | None = None
         self._last_update: datetime | None = None
+        self._force_http_refresh = False
+        self._force_http_after: float | None = None
+        self._force_http_expected_states: frozenset[str] = frozenset()
 
     async def async_setup(self) -> None:
         """Register callbacks from SDK."""
@@ -139,33 +143,61 @@ class NavimowCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # 过期后用户下发指令会立即收到 CODE_OAUTH_INFO_ILLEGAL。
         await self._async_ensure_valid_token()
 
-        cached_state = self.sdk.get_cached_state(self.device.id)
-        if cached_state is not None:
-            self._last_state = cached_state
-            self._last_data_source = "mqtt_cache"
+        # The SDK cache contains the last MQTT object, not a new observation.
+        # Use it only to seed an empty coordinator; replaying it every 30 seconds
+        # can overwrite a newer REST result and makes stale data look fresh.
+        if self._last_state is None:
+            cached_state = self.sdk.get_cached_state(self.device.id)
+            if cached_state is not None:
+                self._last_state = cached_state
+                self._last_data_source = "mqtt_cache_initial"
 
-        cached_attrs = self.sdk.get_cached_attributes(self.device.id)
-        if cached_attrs is not None:
-            self._last_attributes = cached_attrs
+        if self._last_attributes is None:
+            cached_attrs = self.sdk.get_cached_attributes(self.device.id)
+            if cached_attrs is not None:
+                self._last_attributes = cached_attrs
 
         now = time.monotonic()
-        is_mqtt_stale = (
-            self._last_mqtt_update is None
-            or now - self._last_mqtt_update > MQTT_STALE_SECONDS
+        confirming_mqtt_push = (
+            self._force_http_refresh
+            and self._force_http_after is not None
+            and self._last_mqtt_update is not None
+            and self._last_mqtt_update >= self._force_http_after
+            and self._last_state is not None
+            and self._last_state.state in self._force_http_expected_states
         )
-        can_http_fetch = (
-            self._last_http_fetch is None
-            or now - self._last_http_fetch > HTTP_FALLBACK_MIN_INTERVAL
-        )
-        if is_mqtt_stale and can_http_fetch:
+        if confirming_mqtt_push:
+            self._force_http_refresh = False
+            self._force_http_after = None
+            self._force_http_expected_states = frozenset()
+
+        if status_refresh_due(
+            now=now,
+            last_mqtt_state=self._last_mqtt_update,
+            last_http_fetch=self._last_http_fetch,
+            mqtt_stale_seconds=MQTT_STALE_SECONDS,
+            http_min_interval=HTTP_FALLBACK_MIN_INTERVAL,
+            force=self._force_http_refresh,
+        ):
+            mqtt_marker = self._last_mqtt_update
             try:
                 status = await self.api.async_get_device_status(self.device.id)
-                self._last_state = self._device_status_to_state(status)
-                if self._last_state.state != "error" and not self._last_state.error:
-                    self._last_event = None
                 self._last_http_fetch = now
-                self._last_data_source = "http_fallback"
-                self._last_update = datetime.now(timezone.utc)
+                # A state push received while REST was in flight is newer than
+                # the REST snapshot and must win the race.
+                if self._last_mqtt_update == mqtt_marker:
+                    self._last_state = self._device_status_to_state(status)
+                    if self._last_state.state != "error" and not self._last_state.error:
+                        self._last_event = None
+                    self._last_data_source = (
+                        "http_command_refresh"
+                        if self._force_http_refresh
+                        else "http_fallback"
+                    )
+                    self._last_update = datetime.now(timezone.utc)
+                self._force_http_refresh = False
+                self._force_http_after = None
+                self._force_http_expected_states = frozenset()
             except ConfigEntryAuthFailed:
                 raise
             except MowerAPIError as err:
@@ -205,14 +237,12 @@ class NavimowCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             attrs.device_id,
             len(getattr(attrs, "__dict__", {}) or {}),
         )
-        self._last_mqtt_update = time.monotonic()
         self._last_update = datetime.now(timezone.utc)
         self.hass.loop.call_soon_threadsafe(self._update_from_attributes, attrs)
 
     def _handle_event(self, event: DeviceEventMessage) -> None:
         if event.device_id != self.device.id:
             return
-        self._last_mqtt_update = time.monotonic()
         self._last_update = datetime.now(timezone.utc)
         self.hass.loop.call_soon_threadsafe(self._update_from_event, event)
 
@@ -246,3 +276,24 @@ class NavimowCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def get_meta(self) -> dict[str, Any]:
         return self.data.get("meta", {})
+
+    async def async_refresh_after_command(
+        self,
+        command_started: float,
+        expected_states: frozenset[str],
+    ) -> bool:
+        """Confirm a command via a new MQTT push or a forced REST request."""
+        if (
+            self._last_mqtt_update is not None
+            and self._last_mqtt_update >= command_started
+            and self._last_state is not None
+            and self._last_state.state in expected_states
+        ):
+            return True
+        self._force_http_refresh = True
+        self._force_http_after = command_started
+        self._force_http_expected_states = expected_states
+        await self.async_request_refresh()
+        return bool(
+            self._last_state is not None and self._last_state.state in expected_states
+        )
