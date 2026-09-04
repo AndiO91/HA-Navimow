@@ -2,13 +2,16 @@
 
 ## Navimow Python SDK
 
-Navimow Plus depends on the official Navimow Python SDK:
+Navimow Plus depends on our fork of the official Navimow Python SDK:
 
-- Project: `segwaynavimow/navimow-sdk`
-- Source: <https://github.com/segwaynavimow/navimow-sdk>
+- Fork: `AndiHOK91/navimow-sdk`
+- Fork source: <https://github.com/AndiHOK91/navimow-sdk>
+- Upstream project: `segwaynavimow/navimow-sdk`
+- Upstream source: <https://github.com/segwaynavimow/navimow-sdk>
 - Python package: `navimow-sdk`
-- Version currently used: `0.1.2`
-- License declared by the upstream project: GNU General Public License v3.0
+- Version currently used: `0.1.3`
+- Pinned commit: `5ad98eb03bf4d1dc34a1771f45b985f00ac631b3`
+- License expression: `GPL-3.0-only`
 - License text: <https://github.com/segwaynavimow/navimow-sdk/blob/main/LICENSE>
 
 The SDK supplies device discovery, REST communication, MQTT communication,

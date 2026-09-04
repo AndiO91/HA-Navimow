@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Switch the integration to the tested `0.1.3` release of our Navimow SDK fork
+- Pin the SDK to an immutable Git commit for reproducible Home Assistant installs
+- Retain attribution and links to the official upstream Navimow SDK
+
 ## 0.2.0
 
 - Add downloadable diagnostics for the integration and individual mower devices

@@ -3,8 +3,9 @@
 An independent Home Assistant custom integration for Segway Navimow robotic
 mowers.
 
-> **Built with the official [Navimow Python SDK](https://github.com/segwaynavimow/navimow-sdk).**
-> The integration currently installs `navimow-sdk==0.1.2` and uses it for
+> **Built with our [Navimow SDK fork](https://github.com/AndiHOK91/navimow-sdk),**
+> based on the official [Navimow Python SDK](https://github.com/segwaynavimow/navimow-sdk).
+> The integration currently installs version `0.1.3` and uses it for
 > device discovery, REST status requests, MQTT updates, and mower commands.
 
 Navimow Plus adds the Home Assistant-specific OAuth setup, coordinator,
@@ -27,8 +28,8 @@ cloud/MQTT clients can make diagnosis unnecessarily difficult.
 | MQTT connection and data source | Diagnostic | `binary_sensor`, `sensor` |
 | Signal strength | Diagnostic; payload-dependent | `sensor` (disabled by default) |
 | GPS position | Payload-dependent | `device_tracker` |
-| Zone discovery / zone mowing | Not exposed by SDK 0.1.2 | — |
-| Schedule editing | Not exposed by SDK 0.1.2 | — |
+| Zone discovery / zone mowing | Not exposed by SDK 0.1.3 | — |
+| Schedule editing | Not exposed by SDK 0.1.3 | — |
 | Blade height | Experimental SDK command; not exposed yet | — |
 
 The `device_tracker` becomes available only after Navimow sends valid latitude
@@ -41,8 +42,8 @@ is a position marker, not the boundary or mowing-path map from the Navimow app.
 - A Navimow account that works in the official app
 - Permanent internet access for cloud OAuth, REST, and MQTT
 
-`navimow-sdk` is pinned to version `0.1.2` until newer releases have been tested
-against the integration.
+`navimow-sdk` is pinned to the exact, tested `0.1.3` commit of our fork. Home
+Assistant therefore installs the same immutable source revision on every system.
 
 ## Development installation
 
@@ -67,8 +68,10 @@ redacted before the file leaves Home Assistant.
 
 ## Upstream projects
 
+- [Our Navimow SDK fork](https://github.com/AndiHOK91/navimow-sdk) — tested
+  core library used by this integration (`0.1.3`, GPL-3.0-only)
 - [Official Navimow Python SDK](https://github.com/segwaynavimow/navimow-sdk) —
-  core library used by this integration (`navimow-sdk==0.1.2`, GPL-3.0)
+  upstream project on which our fork is based
 - [Official Navimow Home Assistant integration](https://github.com/segwaynavimow/NavimowHA)
 
 See [Third-party notices](THIRD_PARTY_NOTICES.md) for dependency and license
