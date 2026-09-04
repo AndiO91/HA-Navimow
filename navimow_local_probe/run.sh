@@ -7,7 +7,7 @@ readonly UDP_PORTS="53,123,161,5683,1900"
 
 # shellcheck source=/usr/lib/navimow-local-probe.sh
 # The helper is copied into the add-on image during the Docker build.
-# shellcheck source=/dev/null
+# shellcheck disable=SC1091
 source /usr/lib/navimow-local-probe.sh
 
 target_ip="$(bashio::config 'target_ip')"
