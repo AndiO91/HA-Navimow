@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck disable=SC1091
 source "$(dirname "$0")/../navimow_local_probe/lib.sh"
 
 for address in 10.0.0.1 172.16.0.1 172.31.255.254 192.168.1.42; do
