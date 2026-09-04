@@ -1,10 +1,13 @@
 #!/usr/bin/with-contenv bashio
+# shellcheck shell=bash
 set -euo pipefail
 
 readonly TCP_PORTS="21,22,23,53,80,443,554,1883,5683,8000,8080,8443,8883,9001"
 readonly UDP_PORTS="53,123,161,5683,1900"
 
 # shellcheck source=/usr/lib/navimow-local-probe.sh
+# The helper is copied into the add-on image during the Docker build.
+# shellcheck source=/dev/null
 source /usr/lib/navimow-local-probe.sh
 
 target_ip="$(bashio::config 'target_ip')"
