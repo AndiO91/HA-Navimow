@@ -1,17 +1,13 @@
 """DataUpdateCoordinator for Navimow integration."""
 
-from __future__ import annotations
-
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import config_entry_oauth2_flow
-from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from mower_sdk.api import MowerAPI
 from mower_sdk.errors import MowerAPIError
@@ -27,15 +23,9 @@ from mower_sdk.sdk import NavimowSDK
 from .const import (
     DOMAIN,
     HTTP_FALLBACK_MIN_INTERVAL,
-    MAX_TRAIL_POINTS,
     MQTT_STALE_SECONDS,
-    PRIVATE_MAP_POLL_INTERVAL,
     UPDATE_INTERVAL,
 )
-from .map_support import extract_map_geometry, resolve_map_identifiers, zone_for_point
-
-if TYPE_CHECKING:
-    from .private_cloud import PrivateCloudClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,9 +40,6 @@ class NavimowCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         api: MowerAPI,
         device: Device,
         oauth_session: config_entry_oauth2_flow.OAuth2Session | None = None,
-        entry: ConfigEntry | None = None,
-        private_client: PrivateCloudClient | None = None,
-        private_serial: str | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -64,9 +51,6 @@ class NavimowCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.api = api
         self.device = device
         self.oauth_session = oauth_session
-        self.entry = entry
-        self.private_client = private_client
-        self.private_serial = private_serial
         self.data: dict[str, Any] = {}
         self._last_state: DeviceStateMessage | None = None
         self._last_attributes: DeviceAttributesMessage | None = None
@@ -75,33 +59,12 @@ class NavimowCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_http_fetch: float | None = None
         self._last_data_source: str | None = None
         self._last_update: datetime | None = None
-        self._private_connected = False
-        self._private_error: str | None = None
-        self._last_private_poll: float | None = None
-        self._map_geometry: dict[str, Any] | None = None
-        self._map_revision: str | None = None
-        self._location: dict[str, Any] = {}
-        self._trail: list[list[float]] = []
-        self._trail_session = 0
-        self._trail_active = False
-        self._trail_revision = 0
-        self._map_store: Store[dict[str, Any]] = Store(
-            hass,
-            1,
-            f"{DOMAIN}.map.{device.id}",
-        )
 
     async def async_setup(self) -> None:
         """Register callbacks from SDK."""
         self.sdk.on_state(self._handle_state)
         self.sdk.on_attributes(self._handle_attributes)
         self.sdk.on_event(self._handle_event)
-        cached = await self._map_store.async_load()
-        if isinstance(cached, dict):
-            geometry = cached.get("geometry")
-            if isinstance(geometry, dict):
-                self._map_geometry = geometry
-                self._map_revision = str(cached.get("revision") or "") or None
 
     def _build_data(self) -> dict[str, Any]:
         return {
@@ -109,77 +72,13 @@ class NavimowCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "state": self._last_state,
             "attributes": self._last_attributes,
             "event": self._last_event,
-            "map": self._map_geometry,
-            "location": dict(self._location),
             "meta": {
                 "last_data_source": self._last_data_source,
                 "last_update": self._last_update,
                 "last_mqtt_update_monotonic": self._last_mqtt_update,
                 "last_http_fetch_monotonic": self._last_http_fetch,
-                "private_cloud_connected": self._private_connected,
-                "private_cloud_error": self._private_error,
-                "map_revision": self._map_revision,
-                "trail_revision": self._trail_revision,
             },
         }
-
-    async def _async_refresh_private_map(self, now: float) -> None:
-        """Refresh map metadata and fetch geometry only when its revision changes."""
-        if not self.private_client or not self.private_serial:
-            return
-        if (
-            self._last_private_poll is not None
-            and now - self._last_private_poll < PRIVATE_MAP_POLL_INTERVAL
-        ):
-            return
-        self._last_private_poll = now
-
-        def fetch() -> tuple[dict[str, Any] | None, str | None]:
-            location = self.private_client.location(self.private_serial)
-            maps = self.private_client.map_list(self.private_serial)
-            map_id, base_id, edit_time = resolve_map_identifiers(location, maps)
-            if map_id is None or base_id is None:
-                return None, None
-            revision = "|".join((map_id, base_id, edit_time or ""))
-            if revision == self._map_revision and self._map_geometry is not None:
-                return None, revision
-            raw = self.private_client.map_detail(
-                self.private_serial,
-                map_id,
-                base_id,
-            )
-            geometry = extract_map_geometry(raw)
-            if geometry is not None:
-                geometry.update(
-                    {
-                        "map_id": map_id,
-                        "map_base_id": base_id,
-                        "edit_time": edit_time,
-                        "revision": revision,
-                    }
-                )
-            return geometry, revision
-
-        try:
-            geometry, revision = await self.hass.async_add_executor_job(fetch)
-            self._private_connected = True
-            self._private_error = None
-            if geometry is not None and revision is not None:
-                self._map_geometry = geometry
-                self._map_revision = revision
-                await self._map_store.async_save(
-                    {"geometry": geometry, "revision": revision}
-                )
-            elif revision is None and self._map_geometry is None:
-                self._private_error = "No map identifiers returned"
-        except Exception as err:  # noqa: BLE001 - preserve cached map on failure
-            self._private_connected = False
-            self._private_error = type(err).__name__
-            _LOGGER.warning(
-                "Private map refresh failed for device %s: %s",
-                self.device.id,
-                err,
-            )
 
     def _device_status_to_state(self, status: DeviceStatus) -> DeviceStateMessage:
         error: dict[str, Any] | None = None
@@ -274,8 +173,6 @@ class NavimowCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "HTTP fallback failed for device %s: %s", self.device.id, err
                 )
 
-        await self._async_refresh_private_map(now)
-
         _LOGGER.debug(
             "Coordinator update: device=%s source=%s mqtt_ts=%s http_ts=%s",
             self.device.id,
@@ -349,87 +246,3 @@ class NavimowCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def get_meta(self) -> dict[str, Any]:
         return self.data.get("meta", {})
-
-    def ingest_mqtt_location(self, location: dict[str, Any]) -> None:
-        """Ingest a decoded official MQTT location message on the HA loop."""
-        self._location = dict(location)
-        if location.get("pose_updated"):
-            x = location.get("x")
-            y = location.get("y")
-            try:
-                point = [float(x), float(y)]
-            except (TypeError, ValueError):
-                point = []
-            raw_state = str(location.get("vehicle_state") or "")
-            state = self._last_state.state if self._last_state is not None else ""
-            active = raw_state in {"isRunning", "isMapping"} or state == "mowing"
-            if active and point:
-                if not self._trail_active:
-                    self._trail = []
-                    self._trail_session += 1
-                if not self._trail or self._trail[-1] != point:
-                    self._trail.append(point)
-                    self._trail = self._trail[-MAX_TRAIL_POINTS:]
-                    self._trail_revision += 1
-                self._trail_active = True
-            elif raw_state and raw_state not in {"isRunning", "isMapping"}:
-                self._trail_active = False
-        self._last_mqtt_update = time.monotonic()
-        self._last_data_source = "mqtt_location"
-        self._last_update = datetime.now(timezone.utc)
-        self.async_set_updated_data(self._build_data())
-
-    def map_api_path(self) -> str:
-        """Return this mower's authenticated map endpoint."""
-        entry_id = self.entry.entry_id if self.entry is not None else ""
-        return f"/api/{DOMAIN}/map/{entry_id}/{self.device.id}"
-
-    def map_payload(self) -> dict[str, Any]:
-        """Return a Navimower Map Card compatible cached payload."""
-        zone = zone_for_point(
-            self.position_x,
-            self.position_y,
-            list((self._map_geometry or {}).get("zones") or []),
-        )
-        state = self._last_state.state if self._last_state is not None else None
-        return {
-            "schema_version": 1,
-            "map": self._map_geometry or {},
-            "map_version": self._map_revision,
-            "trail": list(self._trail),
-            "trail_segments": [list(self._trail)] if len(self._trail) >= 2 else [],
-            "trail_session": self._trail_session,
-            "trail_revision": self._trail_revision,
-            "trail_active": self._trail_active,
-            "activity": state,
-            "current_physical_zone": zone.get("name") if zone else None,
-            "coverage": {"zones": []},
-        }
-
-    @property
-    def position_x(self) -> float | None:
-        value = self._location.get("x")
-        return float(value) if isinstance(value, (int, float)) else None
-
-    @property
-    def position_y(self) -> float | None:
-        value = self._location.get("y")
-        return float(value) if isinstance(value, (int, float)) else None
-
-    @property
-    def heading(self) -> float | None:
-        value = self._location.get("heading")
-        return float(value) if isinstance(value, (int, float)) else None
-
-    @property
-    def current_physical_zone(self) -> str | None:
-        zone = zone_for_point(
-            self.position_x,
-            self.position_y,
-            list((self._map_geometry or {}).get("zones") or []),
-        )
-        return str(zone.get("name")) if zone else None
-
-    @property
-    def map_revision(self) -> str | None:
-        return self._map_revision

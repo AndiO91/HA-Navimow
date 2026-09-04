@@ -28,8 +28,6 @@ async def async_setup_entry(
         entities.extend(
             (NavimowMqttConnection(coordinator), NavimowProblem(coordinator))
         )
-        if coordinator.private_client is not None:
-            entities.append(NavimowPrivateCloudConnection(coordinator))
     async_add_entities(entities)
 
 
@@ -64,26 +62,3 @@ class NavimowProblem(NavimowCoordinatorEntity, BinarySensorEntity):
             )
             is not None
         )
-
-
-class NavimowPrivateCloudConnection(NavimowCoordinatorEntity, BinarySensorEntity):
-    """Report whether the optional map-cloud session is healthy."""
-
-    _attr_translation_key = "private_cloud_connection"
-    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    def __init__(self, coordinator) -> None:
-        super().__init__(coordinator)
-        self._attr_unique_id = (
-            f"{DOMAIN}_{coordinator.device.id}_private_cloud_connection"
-        )
-
-    @property
-    def is_on(self) -> bool:
-        return bool(self.coordinator.get_meta().get("private_cloud_connected"))
-
-    @property
-    def extra_state_attributes(self) -> dict[str, str] | None:
-        error = self.coordinator.get_meta().get("private_cloud_error")
-        return {"error": str(error)} if error else None

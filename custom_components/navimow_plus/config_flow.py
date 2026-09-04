@@ -3,33 +3,18 @@
 from __future__ import annotations
 
 import logging
-import uuid
 from typing import Any
 
-import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import config_entry_oauth2_flow
-from homeassistant.helpers.selector import (
-    TextSelector,
-    TextSelectorConfig,
-    TextSelectorType,
-)
 
 from .auth import NavimowOAuth2Implementation
 from .const import (
     API_BASE_URL,
     CLIENT_ID,
     CLIENT_SECRET,
-    CONF_PRIVATE_ACCESS_TOKEN,
-    CONF_PRIVATE_CLOUD_ENABLED,
-    CONF_PRIVATE_DEVICE_ID,
-    CONF_PRIVATE_REFRESH_TOKEN,
-    CONF_PRIVATE_REGION,
-    CONF_PRIVATE_UID,
-    CONF_PRIVATE_UUID,
     DOMAIN,
     MQTT_BROKER,
     MQTT_PASSWORD,
@@ -181,102 +166,10 @@ class NavimowOptionsFlowHandler(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage the options."""
-        current = dict(self._config_entry.options)
         if user_input is not None:
-            enabled = bool(user_input.get(CONF_PRIVATE_CLOUD_ENABLED))
-            if not enabled:
-                return self.async_create_entry(
-                    title="",
-                    data={**current, CONF_PRIVATE_CLOUD_ENABLED: False},
-                )
-
-            username = str(user_input.get(CONF_USERNAME) or "").strip()
-            password = str(user_input.get(CONF_PASSWORD) or "")
-            if not username and not password and current.get(CONF_PRIVATE_ACCESS_TOKEN):
-                return self.async_create_entry(
-                    title="",
-                    data={**current, CONF_PRIVATE_CLOUD_ENABLED: True},
-                )
-
-            errors: dict[str, str] = {}
-            if not username or not password:
-                errors["base"] = "private_credentials_required"
-            else:
-                from .private_cloud import (
-                    PrivateCloudAuthError,
-                    PrivateCloudClient,
-                    PrivateCloudError,
-                )
-
-                device_id = str(current.get(CONF_PRIVATE_DEVICE_ID) or uuid.uuid4().hex)
-
-                def authenticate() -> tuple[dict[str, str], list[dict[str, Any]]]:
-                    client = PrivateCloudClient(device_id)
-                    client.authenticate(username, password)
-                    return client.session_state(), client.auth_list()
-
-                try:
-                    session, vehicles = await self.hass.async_add_executor_job(
-                        authenticate
-                    )
-                    if not vehicles:
-                        errors["base"] = "private_no_devices"
-                    else:
-                        return self.async_create_entry(
-                            title="",
-                            data={
-                                **current,
-                                CONF_PRIVATE_CLOUD_ENABLED: True,
-                                CONF_PRIVATE_ACCESS_TOKEN: session["access_token"],
-                                CONF_PRIVATE_REFRESH_TOKEN: session["refresh_token"],
-                                CONF_PRIVATE_UUID: session["uuid"],
-                                CONF_PRIVATE_REGION: session["region"],
-                                CONF_PRIVATE_UID: session["uid"],
-                                CONF_PRIVATE_DEVICE_ID: session["device_id"],
-                            },
-                        )
-                except PrivateCloudAuthError:
-                    errors["base"] = "private_invalid_auth"
-                except PrivateCloudError:
-                    errors["base"] = "cannot_connect"
-                except Exception:
-                    _LOGGER.exception("Unexpected private-cloud setup error")
-                    errors["base"] = "unknown"
-
-            return self.async_show_form(
-                step_id="init",
-                data_schema=self._options_schema(current, enabled=True),
-                errors=errors,
-            )
+            return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
             step_id="init",
-            data_schema=self._options_schema(current),
-        )
-
-    @staticmethod
-    def _options_schema(
-        current: dict[str, Any], *, enabled: bool | None = None
-    ) -> vol.Schema:
-        """Return the private-map options form without exposing stored tokens."""
-        return vol.Schema(
-            {
-                vol.Required(
-                    CONF_PRIVATE_CLOUD_ENABLED,
-                    default=(
-                        bool(current.get(CONF_PRIVATE_CLOUD_ENABLED))
-                        if enabled is None
-                        else enabled
-                    ),
-                ): bool,
-                vol.Optional(CONF_USERNAME, default=""): TextSelector(
-                    TextSelectorConfig(autocomplete="username")
-                ),
-                vol.Optional(CONF_PASSWORD, default=""): TextSelector(
-                    TextSelectorConfig(
-                        type=TextSelectorType.PASSWORD,
-                        autocomplete="current-password",
-                    )
-                ),
-            }
+            data_schema=None,
         )

@@ -20,35 +20,11 @@
       "missing_config": "OAuth client configuration is missing."
     }
   },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Map (beta)",
-        "description": "Enable the optional map cloud to load boundaries and zones. This uses the undocumented mobile-app API and still requires internet access. Your password is used only for sign-in and is not stored.",
-        "data": {
-          "private_cloud_enabled": "Enable map cloud (beta)",
-          "username": "Navimow app email",
-          "password": "Navimow app password"
-        },
-        "data_description": {
-          "username": "Leave email and password empty to retain an existing map session.",
-          "password": "Use a shared Navimow account where possible. The password is never saved by Home Assistant."
-        }
-      }
-    },
-    "error": {
-      "private_credentials_required": "Enter both the Navimow app email and password.",
-      "private_no_devices": "The app account does not contain a mower.",
-      "private_invalid_auth": "The Navimow app credentials were rejected.",
-      "cannot_connect": "Cannot connect to the Navimow map service.",
-      "unknown": "Unexpected error."
-    }
-  },
+  "options": {"step": {"init": {"title": "Navimow Plus options", "description": "There are currently no configurable options."}}},
   "entity": {
     "binary_sensor": {
       "mqtt_connection": {"name": "MQTT connection"},
-      "problem": {"name": "Problem"},
-      "private_cloud_connection": {"name": "Map cloud connection"}
+      "problem": {"name": "Problem"}
     },
     "device_tracker": {"location": {"name": "Location"}},
     "sensor": {
@@ -57,12 +33,7 @@
       "error": {"name": "Error"},
       "last_update": {"name": "Last update"},
       "signal_strength": {"name": "Signal strength"},
-      "status": {"name": "Status"},
-      "map_data": {"name": "Map data"},
-      "position_x": {"name": "Map position X"},
-      "position_y": {"name": "Map position Y"},
-      "heading": {"name": "Map heading"},
-      "current_physical_zone": {"name": "Current physical zone"}
+      "status": {"name": "Status"}
     }
   }
 }

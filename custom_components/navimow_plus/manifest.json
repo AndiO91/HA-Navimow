@@ -8,11 +8,8 @@
   "documentation": "https://github.com/AndiO91/HA-Navimow",
   "issue_tracker": "https://github.com/AndiO91/HA-Navimow/issues",
   "iot_class": "cloud_push",
-  "dependencies": [
-    "http"
-  ],
   "requirements": [
     "navimow-sdk==0.1.2"
   ],
-  "version": "0.2.0-beta.1"
+  "version": "0.2.0-beta.2"
 }

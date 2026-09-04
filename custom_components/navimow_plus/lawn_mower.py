@@ -117,7 +117,6 @@ class NavimowLawnMower(CoordinatorEntity[NavimowCoordinator], LawnMowerEntity):
         attributes: dict[str, Any] = {
             "battery": state.battery,
             "status": state.state,
-            "map_api_path": self.coordinator.map_api_path(),
         }
         if state.signal_strength is not None:
             attributes["signal_strength"] = state.signal_strength

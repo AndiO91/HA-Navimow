@@ -20,54 +20,22 @@ cloud/MQTT clients can make diagnosis unnecessarily difficult.
 | MQTT connection and data source | Diagnostic | `binary_sensor`, `sensor` |
 | Signal strength | Diagnostic; payload-dependent | `sensor` (disabled by default) |
 | GPS position | Payload-dependent | `device_tracker` |
-| Map boundaries and zones | Beta; optional private app-cloud session | `sensor`, authenticated API |
-| Live X/Y position and heading | Beta; official cloud MQTT | `sensor` |
 | Zone discovery / zone mowing | Not exposed by SDK 0.1.2 | — |
 | Schedule editing | Not exposed by SDK 0.1.2 | — |
 | Blade height | Experimental SDK command; not exposed yet | — |
 
 The `device_tracker` becomes available only after Navimow sends valid latitude
 and longitude values. It can then be placed on Home Assistant's Map card. This
-geographic marker is separate from the new garden map described below.
+is a position marker, not the boundary or mowing-path map from the Navimow app.
 
 ## Requirements
 
 - Home Assistant 2026.1.0 or newer
 - A Navimow account that works in the official app
-- Permanent internet access for cloud OAuth, REST, MQTT, and optional map data
+- Permanent internet access for cloud OAuth, REST, and MQTT
 
 `navimow-sdk` is pinned to version `0.1.2` until newer releases have been tested
 against the integration.
-
-## Map setup (beta)
-
-The map is not provided by `navimow-sdk` 0.1.2. Navimow Plus therefore combines
-two sources: map geometry from the mobile app's undocumented private cloud API
-and live X/Y coordinates from the official Navimow MQTT broker. This is **not a
-fully local mode** and may break if Navimow changes either protocol.
-
-1. Open **Settings → Devices & services → Navimow Plus → Configure**.
-2. Enable **Map cloud (beta)** and enter the credentials used by the Navimow
-   app. Prefer a separately shared Navimow account where possible.
-3. The password is used once to obtain session tokens and is not stored.
-4. In HACS, add `https://github.com/vahesoo/navimower-map-card` as a
-   **Dashboard** custom repository and install **Navimower Map Card**.
-5. Add the card to a dashboard:
-
-```yaml
-type: custom:navimower-map-card
-entity: lawn_mower.your_mower
-```
-
-The card normally discovers the `map_data`, `position_x`, `position_y`, and
-`heading` sensors from the mower device automatically. If automatic discovery
-does not match customized entity IDs, select those four entities in the visual
-card editor.
-
-Map display, mower position, the current in-memory trail, pause and dock are the
-initial compatibility target. Zone-start, scheduler, notification and history
-buttons in current Map Card releases call services belonging specifically to
-the `navimower` integration and are not yet supported by Navimow Plus.
 
 ## Development installation
 
@@ -79,17 +47,14 @@ the `navimower` integration and are not yet supported by Navimow Plus.
 
 ## Privacy and diagnostics
 
-Passwords, access tokens, MQTT credentials, WebSocket paths, and raw MQTT
-payloads are not written to normal integration logs. The optional app password
-is not persisted. Diagnostic entities expose only connection state, update
-source, timestamp, and a non-sensitive error class.
+Access tokens, MQTT credentials, WebSocket paths, and raw MQTT payloads are not
+written to normal integration logs. Diagnostic entities expose only connection
+state, update source, and timestamp.
 
 ## Upstream projects
 
 - [Official Navimow SDK](https://github.com/segwaynavimow/navimow-sdk)
 - [Official Navimow Home Assistant integration](https://github.com/segwaynavimow/NavimowHA)
-- [NaviMower community integration](https://github.com/vahesoo/NaviMower)
-- [Navimower Map Card](https://github.com/vahesoo/navimower-map-card)
 
 This project is not an official Segway Navimow product.
 
