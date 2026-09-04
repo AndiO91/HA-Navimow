@@ -1,8 +1,15 @@
 # Navimow Plus for Home Assistant
 
 An independent Home Assistant custom integration for Segway Navimow robotic
-mowers. It is based on the official `navimow-sdk` and uses Navimow OAuth,
-cloud MQTT updates, and a rate-limited HTTP fallback.
+mowers.
+
+> **Built with the official [Navimow Python SDK](https://github.com/segwaynavimow/navimow-sdk).**
+> The integration currently installs `navimow-sdk==0.1.2` and uses it for
+> device discovery, REST status requests, MQTT updates, and mower commands.
+
+Navimow Plus adds the Home Assistant-specific OAuth setup, coordinator,
+entities, command confirmation, diagnostics, and update fallback around that
+SDK. It is an independent integration, not a fork of the SDK.
 
 The integration uses the separate domain `navimow_plus`, so it can be tested
 without replacing Home Assistant's `navimow` integration. Do not configure both
@@ -60,8 +67,12 @@ redacted before the file leaves Home Assistant.
 
 ## Upstream projects
 
-- [Official Navimow SDK](https://github.com/segwaynavimow/navimow-sdk)
+- [Official Navimow Python SDK](https://github.com/segwaynavimow/navimow-sdk) —
+  core library used by this integration (`navimow-sdk==0.1.2`, GPL-3.0)
 - [Official Navimow Home Assistant integration](https://github.com/segwaynavimow/NavimowHA)
+
+See [Third-party notices](THIRD_PARTY_NOTICES.md) for dependency and license
+details.
 
 This project is not an official Segway Navimow product.
 
