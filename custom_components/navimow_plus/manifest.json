@@ -11,5 +11,5 @@
   "requirements": [
     "navimow-sdk@https://github.com/AndiHOK91/navimow-sdk/archive/5ad98eb03bf4d1dc34a1771f45b985f00ac631b3.zip"
   ],
-  "version": "0.2.1"
+  "version": "0.3.0"
 }
