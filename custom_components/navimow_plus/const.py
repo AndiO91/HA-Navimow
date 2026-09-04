@@ -42,6 +42,11 @@ MQTT_STALE_SECONDS: Final = 300
 # HTTP 兜底最小拉取间隔（秒），避免频繁请求
 HTTP_FALLBACK_MIN_INTERVAL: Final = 300
 
+# Active states need a quicker authoritative check when the cloud MQTT stream
+# omits a transition (observed especially from returning to docked).
+ACTIVE_STATUS_POLL_INTERVAL: Final = 60
+RETURNING_STATUS_POLL_INTERVAL: Final = 30
+
 # MowerStatus 到 LawnMowerActivity 的映射
 MOWER_STATUS_TO_ACTIVITY = {
     "idle": "docked",

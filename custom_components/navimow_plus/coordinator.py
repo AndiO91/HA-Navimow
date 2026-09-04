@@ -21,9 +21,11 @@ from mower_sdk.models import (
 from mower_sdk.sdk import NavimowSDK
 
 from .const import (
+    ACTIVE_STATUS_POLL_INTERVAL,
     DOMAIN,
     HTTP_FALLBACK_MIN_INTERVAL,
     MQTT_STALE_SECONDS,
+    RETURNING_STATUS_POLL_INTERVAL,
     UPDATE_INTERVAL,
 )
 from .helpers import status_refresh_due
@@ -171,29 +173,51 @@ class NavimowCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._force_http_after = None
             self._force_http_expected_states = frozenset()
 
+        current_state = self._last_state.state if self._last_state is not None else None
+        state_poll_interval = None
+        if current_state == "returning":
+            state_poll_interval = RETURNING_STATUS_POLL_INTERVAL
+        elif current_state in {"mowing", "paused"}:
+            state_poll_interval = ACTIVE_STATUS_POLL_INTERVAL
+        status_observations = [
+            timestamp
+            for timestamp in (self._last_mqtt_update, self._last_http_fetch)
+            if timestamp is not None
+        ]
+        active_poll_due = bool(
+            state_poll_interval is not None
+            and (
+                not status_observations
+                or now - max(status_observations) >= state_poll_interval
+            )
+        )
         if status_refresh_due(
             now=now,
             last_mqtt_state=self._last_mqtt_update,
             last_http_fetch=self._last_http_fetch,
             mqtt_stale_seconds=MQTT_STALE_SECONDS,
             http_min_interval=HTTP_FALLBACK_MIN_INTERVAL,
+            state_poll_interval=state_poll_interval,
             force=self._force_http_refresh,
         ):
             mqtt_marker = self._last_mqtt_update
+            forced_refresh = self._force_http_refresh
             try:
-                status = await self.api.async_get_device_status(self.device.id)
+                # Throttle failed requests as well as successful ones.
                 self._last_http_fetch = now
+                status = await self.api.async_get_device_status(self.device.id)
                 # A state push received while REST was in flight is newer than
                 # the REST snapshot and must win the race.
                 if self._last_mqtt_update == mqtt_marker:
                     self._last_state = self._device_status_to_state(status)
                     if self._last_state.state != "error" and not self._last_state.error:
                         self._last_event = None
-                    self._last_data_source = (
-                        "http_command_refresh"
-                        if self._force_http_refresh
-                        else "http_fallback"
-                    )
+                    if forced_refresh:
+                        self._last_data_source = "http_command_refresh"
+                    elif active_poll_due:
+                        self._last_data_source = "http_active_poll"
+                    else:
+                        self._last_data_source = "http_fallback"
                     self._last_update = datetime.now(timezone.utc)
                 self._force_http_refresh = False
                 self._force_http_after = None

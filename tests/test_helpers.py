@@ -68,6 +68,28 @@ class HelpersTest(unittest.TestCase):
             )
         )
 
+    def test_active_state_poll_uses_latest_status_observation(self) -> None:
+        self.assertFalse(
+            status_refresh_due(
+                now=100,
+                last_mqtt_state=50,
+                last_http_fetch=80,
+                mqtt_stale_seconds=300,
+                http_min_interval=300,
+                state_poll_interval=30,
+            )
+        )
+        self.assertTrue(
+            status_refresh_due(
+                now=110,
+                last_mqtt_state=50,
+                last_http_fetch=80,
+                mqtt_stale_seconds=300,
+                http_min_interval=300,
+                state_poll_interval=30,
+            )
+        )
+
     def test_extract_position_accepts_known_keys(self) -> None:
         self.assertEqual(extract_position({"lat": "51.2", "lng": 7.1}), (51.2, 7.1))
         self.assertEqual(

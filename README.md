@@ -51,6 +51,13 @@ Access tokens, MQTT credentials, WebSocket paths, and raw MQTT payloads are not
 written to normal integration logs. Diagnostic entities expose only connection
 state, update source, and timestamp.
 
+Home Assistant can download a diagnostic file for the integration or an
+individual mower from **Settings → Devices & services → Navimow Plus → three-dot
+menu → Download diagnostics**. It contains sanitized connection freshness,
+coordinator state, attributes, and the latest event. OAuth/MQTT credentials,
+device identifiers, names, serial numbers, and position data are recursively
+redacted before the file leaves Home Assistant.
+
 ## Upstream projects
 
 - [Official Navimow SDK](https://github.com/segwaynavimow/navimow-sdk)

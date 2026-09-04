@@ -12,11 +12,20 @@ def status_refresh_due(
     last_http_fetch: float | None,
     mqtt_stale_seconds: float,
     http_min_interval: float,
+    state_poll_interval: float | None = None,
     force: bool = False,
 ) -> bool:
     """Return whether an authoritative REST status refresh should run."""
     if force:
         return True
+    if state_poll_interval is not None:
+        observations = [
+            timestamp
+            for timestamp in (last_mqtt_state, last_http_fetch)
+            if timestamp is not None
+        ]
+        if not observations or now - max(observations) >= state_poll_interval:
+            return True
     mqtt_is_stale = (
         last_mqtt_state is None or now - last_mqtt_state > mqtt_stale_seconds
     )

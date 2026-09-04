@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
+- Add downloadable diagnostics for the integration and individual mower devices
+- Include connection freshness, coordinator state, attributes, and recent events
+- Recursively redact OAuth/MQTT secrets, identifiers, names, and position data
+- Poll active states faster to recover MQTT transitions that the cloud omits
+- Detect returning-to-docked transitions within about 30 seconds
 - Add a read-only Home Assistant OS add-on for targeted Navimow LAN discovery
 
 ## 0.2.0-beta.3
